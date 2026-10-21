@@ -3,7 +3,7 @@ name = "my_work"
 authors = [
     { name = "Richmond Seyram", email = "rgedzia@gmail.com"}
 ]
-description = "Task, To-Do and Approval tracker with hierarchy-based visibility"
+description = "Dashboard for tracking To-Dos, Tasks and pending approvals across the reporting line"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]

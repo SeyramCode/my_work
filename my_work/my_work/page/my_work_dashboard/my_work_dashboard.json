@@ -12,10 +12,10 @@
  "page_name": "my-work-dashboard",
  "roles": [
   {
-   "role": "My Work User"
+   "role": "Work User"
   },
   {
-   "role": "My Work Manager"
+   "role": "Work Manager"
   },
   {
    "role": "System Manager"

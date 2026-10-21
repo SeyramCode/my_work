@@ -1,7 +1,7 @@
 app_name = "my_work"
 app_title = "My Work"
 app_publisher = "Richmond Seyram"
-app_description = "Task, To-Do and Approval tracker with hierarchy-based visibility"
+app_description = "Dashboard for tracking To-Dos, Tasks and pending approvals across the reporting line"
 app_email = "rgedzia@gmail.com"
 app_license = "mit"
 
@@ -250,23 +250,11 @@ app_license = "mit"
 
 # My Work
 # -------
-# Works on ERPNext's existing ToDo, Task and Workflow Action; adds no doctypes of its own.
+# Display and tracking only. Reads ERPNext's existing ToDo, Task and Workflow Action records;
+# adds no permission hooks, list overrides or customisations to ERPNext doctypes.
 
 before_install = "my_work.install.before_install"
 after_install = "my_work.install.after_install"
-before_uninstall = "my_work.install.before_uninstall"
-
-doctype_list_js = {"ToDo": "public/js/todo_list.js"}
-
-permission_query_conditions = {
-	"ToDo": "my_work.permissions.todo_query_conditions",
-	"Task": "my_work.permissions.task_query_conditions",
-}
-
-has_permission = {
-	"ToDo": "my_work.permissions.todo_has_permission",
-	"Task": "my_work.permissions.task_has_permission",
-}
 
 scheduler_events = {
 	"daily": ["my_work.tasks.send_overdue_digest"],

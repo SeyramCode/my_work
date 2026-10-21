@@ -1,0 +1,45 @@
+{
+ "actions": [],
+ "creation": "2026-10-21 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "enabled_help"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable My Work"
+  },
+  {
+   "fieldname": "enabled_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted small\">When unchecked, My Work switches off: the dashboard and workspace are hidden and the daily overdue summary stops. My Work never changes ERPNext permissions; it only displays existing To-Dos, Tasks and workflow approvals.</p>"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-21 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "My Work",
+ "name": "My Work Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

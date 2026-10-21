@@ -1,0 +1,92 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"mwhdr00001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>My Work</b></span>\", \"col\": 12}}, {\"id\": \"mwsc000001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard\", \"col\": 3}}, {\"id\": \"mwsc000002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My To Dos\", \"col\": 3}}, {\"id\": \"mwsc000003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tasks\", \"col\": 3}}, {\"id\": \"mwsc000004\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pending Approvals\", \"col\": 3}}, {\"id\": \"mwspacer01\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"mwcard0001\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "creation": "2026-10-21 09:40:26.675198",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "check",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "My Work",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "My Work Settings",
+   "link_count": 0,
+   "link_to": "My Work Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-21 10:43:18.783327",
+ "modified_by": "Administrator",
+ "module": "My Work",
+ "name": "My Work",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Work User"
+  },
+  {
+   "role": "Work Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "label": "Dashboard",
+   "link_to": "my-work-dashboard",
+   "type": "Page"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "format": "{} Open",
+   "label": "My To Dos",
+   "link_to": "ToDo",
+   "stats_filter": "[[\"ToDo\",\"status\",\"=\",\"Open\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "format": "{} Overdue",
+   "label": "Tasks",
+   "link_to": "Task",
+   "stats_filter": "[[\"Task\",\"status\",\"=\",\"Overdue\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "format": "{} Open",
+   "label": "Pending Approvals",
+   "link_to": "Workflow Action",
+   "stats_filter": "[[\"Workflow Action\",\"status\",\"=\",\"Open\",false]]",
+   "type": "DocType"
+  }
+ ],
+ "title": "My Work"
+}

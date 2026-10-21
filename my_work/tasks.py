@@ -4,11 +4,14 @@ from frappe.desk.doctype.notification_log.notification_log import enqueue_create
 from frappe.utils import today
 
 from my_work.api import get_open_tasks
-from my_work.permissions import get_manager_user
+from my_work.hierarchy import get_manager_user
+from my_work.settings import is_enabled
 
 
 def send_overdue_digest():
 	"""Daily: one notification per assignee with overdue ToDos/Tasks, one per manager for their reports."""
+	if not is_enabled():
+		return
 	todo_counts = dict(
 		frappe.db.sql(
 			"""select allocated_to, count(*) from `tabToDo`
