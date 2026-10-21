@@ -247,3 +247,26 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+# My Work
+# -------
+
+before_install = "my_work.install.before_install"
+after_install = "my_work.install.after_install"
+
+permission_query_conditions = {
+	"Work Item": "my_work.permissions.work_item_query_conditions",
+}
+
+has_permission = {
+	"Work Item": "my_work.permissions.work_item_has_permission",
+}
+
+doc_events = {
+	"DocShare": {"before_insert": "my_work.permissions.block_work_item_share"},
+	"ToDo": {"before_insert": "my_work.events.block_work_item_todo"},
+}
+
+scheduler_events = {
+	"daily": ["my_work.tasks.mark_overdue"],
+}
