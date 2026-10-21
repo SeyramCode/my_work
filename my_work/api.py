@@ -1,107 +1,208 @@
+"""Dashboard data built from ERPNext's existing ToDo, Task and Workflow Action records."""
+
 import frappe
-from frappe.utils import add_days, today
+from frappe.model.workflow import get_workflow, is_transition_condition_satisfied
+from frappe.utils import add_days, getdate, today
 
 from my_work.permissions import get_subordinate_users, is_admin
 
-OPEN = ["Open", "In Progress", "On Hold"]
-CLOSED = ["Completed", "Approved", "Rejected"]
-ITEM_FIELDS = [
-	"name",
-	"subject",
-	"item_type",
-	"status",
-	"priority",
-	"due_date",
-	"is_overdue",
-	"assigned_to",
-	"assigned_to_name",
-	"assigned_by_name",
-]
-
-
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def assignable_users(doctype, txt, searchfield, start, page_len, filters):
-	"""Active desk users with access to My Work, from any department."""
-	like = f"%{txt}%"
-	return frappe.db.sql(
-		"""
-		select u.name, concat_ws(' - ', u.full_name, e.department)
-		from `tabUser` u
-		left join `tabEmployee` e on e.user_id = u.name and e.status = 'Active'
-		where u.enabled = 1 and u.user_type = 'System User'
-			and u.name not in ('Administrator', 'Guest')
-			and exists (select 1 from `tabHas Role` r where r.parent = u.name and r.parenttype = 'User'
-				and r.role in ('My Work User', 'My Work Manager', 'System Manager'))
-			and (u.name like %(like)s or u.full_name like %(like)s or ifnull(e.department, '') like %(like)s)
-		order by u.full_name
-		limit %(start)s, %(page_len)s
-		""",
-		{"like": like, "start": int(start), "page_len": int(page_len)},
-	)
+TASK_CLOSED = ("Completed", "Cancelled", "Template")
 
 
 @frappe.whitelist()
 def get_dashboard():
 	user = frappe.session.user
-	week_end = add_days(today(), 7)
+	approvals = get_pending_approvals()
 
-	def items(filters, limit=10):
-		return frappe.get_all(
-			"Work Item",
-			filters=filters,
-			fields=ITEM_FIELDS,
-			order_by="is_overdue desc, due_date asc",
-			limit=limit,
-		)
-
-	def count(filters):
-		return frappe.db.count("Work Item", filters)
-
-	mine = {"assigned_to": user, "status": ("in", OPEN)}
-	by_me = {"assigned_by": user, "assigned_to": ("!=", user), "status": ("in", OPEN)}
+	my_todos = get_open_todos({"allocated_to": user, "reference_type": ("!=", "Task")})
+	my_tasks = get_open_tasks([user])
+	by_me = get_open_todos({"assigned_by": user, "allocated_to": ("!=", user)})
 
 	data = {
 		"cards": {
-			"my_open": count(mine),
-			"my_overdue": count({**mine, "is_overdue": 1}),
-			"my_due_week": count({**mine, "due_date": ("between", [today(), week_end])}),
-			"my_approvals": count({**mine, "item_type": "Approval"}),
-			"by_me_open": count(by_me),
-			"by_me_overdue": count({**by_me, "is_overdue": 1}),
+			"my_todos": len(my_todos),
+			"my_todos_overdue": sum(t.is_overdue for t in my_todos),
+			"my_tasks": len(my_tasks),
+			"my_tasks_overdue": sum(t.is_overdue for t in my_tasks),
+			"approvals": len(approvals),
+			"by_me_open": len(by_me),
+			"by_me_overdue": sum(t.is_overdue for t in by_me),
 		},
-		"my_items": items(mine),
-		"my_approvals": items({**mine, "item_type": "Approval"}),
-		"by_me_items": items(by_me),
+		"my_todos": my_todos[:15],
+		"my_tasks": my_tasks[:15],
+		"approvals": approvals,
+		"by_me": by_me[:15],
 		"team": None,
 	}
 
 	team_users = get_subordinate_users(user)
 	if is_admin(user) and not team_users:
-		team_users = frappe.get_all("Work Item", distinct=True, pluck="assigned_to")
+		team_users = frappe.get_all(
+			"Employee", filters={"status": "Active", "user_id": ("is", "set")}, pluck="user_id"
+		)
 	if team_users:
-		data["team"] = get_team_summary(team_users)
-		data["team_overdue"] = items({"assigned_to": ("in", team_users), "is_overdue": 1}, limit=20)
+		data["team"], data["team_overdue"] = get_team_summary(team_users)
 
 	return data
 
 
+def get_open_todos(filters, limit=None):
+	"""Open ToDos with an is_overdue flag (ToDo.date is the due date)."""
+	rows = frappe.get_all(
+		"ToDo",
+		filters={"status": "Open", **filters},
+		fields=[
+			"name",
+			"description",
+			"date",
+			"priority",
+			"allocated_to",
+			"assigned_by",
+			"reference_type",
+			"reference_name",
+		],
+		order_by="date is null, date asc, creation desc",
+		limit=limit,
+	)
+	return [decorate_todo(r) for r in rows]
+
+
+def decorate_todo(r):
+	r.subject = frappe.utils.strip_html(r.description or "")[:140] or r.name
+	r.due_date = r.date
+	r.is_overdue = int(bool(r.date and getdate(r.date) < getdate(today())))
+	r.assignee_name = frappe.utils.get_fullname(r.allocated_to)
+	r.assigner_name = frappe.utils.get_fullname(r.assigned_by) if r.assigned_by else ""
+	if r.reference_type and r.reference_name:
+		r.route = f"/app/{frappe.scrub(r.reference_type).replace('_', '-')}/{r.reference_name}"
+	else:
+		r.route = f"/app/todo/{r.name}"
+	return r
+
+
+def get_open_tasks(users):
+	"""Open ERPNext Tasks assigned (via ToDo) to any of `users`."""
+	if not users:
+		return []
+	task = frappe.qb.DocType("Task")
+	todo = frappe.qb.DocType("ToDo")
+	rows = (
+		frappe.qb.from_(task)
+		.join(todo)
+		.on((todo.reference_type == "Task") & (todo.reference_name == task.name))
+		.select(
+			task.name,
+			task.subject,
+			task.status,
+			task.priority,
+			task.project,
+			task.exp_end_date.as_("due_date"),
+			todo.allocated_to,
+			todo.assigned_by,
+		)
+		.where(todo.status == "Open")
+		.where(todo.allocated_to.isin(users))
+		.where(task.status.notin(TASK_CLOSED))
+		.orderby(task.exp_end_date)
+	).run(as_dict=True)
+	for r in rows:
+		r.is_overdue = int(
+			r.status == "Overdue" or bool(r.due_date and getdate(r.due_date) < getdate(today()))
+		)
+		r.assignee_name = frappe.utils.get_fullname(r.allocated_to)
+		r.assigner_name = frappe.utils.get_fullname(r.assigned_by) if r.assigned_by else ""
+		r.route = f"/app/task/{r.name}"
+	rows.sort(key=lambda r: (-r.is_overdue, r.due_date or getdate("9999-12-31")))
+	return rows
+
+
+@frappe.whitelist()
+def get_pending_approvals():
+	"""Workflow documents the current user can act on right now.
+
+	Starts from Frappe's open Workflow Actions (already restricted to the user's roles), then
+	keeps only documents whose current state still offers this user a transition they may take.
+	"""
+	user = frappe.session.user
+	cache_key = f"my_work:approvals:{user}"
+	if (cached := frappe.cache.get_value(cache_key)) is not None:
+		return cached
+
+	actions = frappe.get_list(
+		"Workflow Action",
+		filters={"status": "Open"},
+		fields=["reference_doctype", "reference_name", "workflow_state", "creation"],
+		order_by="creation asc",
+		limit_page_length=0,
+	)
+	active = set(frappe.get_all("Workflow", filters={"is_active": 1}, pluck="document_type"))
+	roles = set(frappe.get_roles(user))
+
+	seen, result = set(), []
+	for a in actions:
+		key = (a.reference_doctype, a.reference_name)
+		if key in seen or a.reference_doctype not in active:
+			continue
+		seen.add(key)
+		if not frappe.db.exists(a.reference_doctype, a.reference_name):
+			continue
+		doc = frappe.get_doc(a.reference_doctype, a.reference_name)
+		if not frappe.has_permission(doc=doc, ptype="read", user=user):
+			continue
+		workflow = get_workflow(doc.doctype)
+		state = doc.get(workflow.workflow_state_field)
+		if state != a.workflow_state:
+			continue  # stale action: document has moved on
+		allowed = [
+			t.action
+			for t in workflow.transitions
+			if t.state == state
+			and t.allowed in roles
+			and (t.allow_self_approval or doc.owner != user)
+			and is_transition_condition_satisfied(t, doc)
+		]
+		if not allowed:
+			continue
+		result.append(
+			{
+				"doctype": doc.doctype,
+				"name": doc.name,
+				"title": doc.get_title() or doc.name,
+				"state": state,
+				"actions": list(dict.fromkeys(allowed)),
+				"requested_by": frappe.utils.get_fullname(doc.owner),
+				"waiting_since": a.creation,
+				"route": f"/app/{frappe.scrub(doc.doctype).replace('_', '-')}/{doc.name}",
+			}
+		)
+
+	frappe.cache.set_value(cache_key, result, expires_in_sec=120)
+	return result
+
+
 def get_team_summary(users):
 	since = add_days(today(), -30)
-	rows = frappe.db.sql(
+	todo_stats = frappe.db.sql(
 		"""
-		select w.assigned_to as user,
-			sum(w.status in %(open)s) as open,
-			sum(w.is_overdue = 1) as overdue,
-			sum(w.status in %(closed)s and w.completed_on >= %(since)s) as closed_30d
-		from `tabWork Item` w
-		where w.assigned_to in %(users)s
-		group by w.assigned_to
+		select allocated_to as user,
+			sum(status = 'Open' and ifnull(reference_type, '') != 'Task') as open_todos,
+			sum(status = 'Open' and ifnull(reference_type, '') != 'Task' and date < %(today)s) as overdue_todos,
+			sum(status = 'Closed' and modified >= %(since)s) as closed_30d
+		from `tabToDo`
+		where allocated_to in %(users)s
+		group by allocated_to
 		""",
-		{"open": OPEN, "closed": CLOSED, "since": since, "users": users},
+		{"users": users, "today": today(), "since": since},
 		as_dict=True,
 	)
-	stats = {r.user: r for r in rows}
+	stats = {r.user: r for r in todo_stats}
+
+	tasks = get_open_tasks(users)
+	task_open, task_overdue = {}, {}
+	for t in tasks:
+		task_open[t.allocated_to] = task_open.get(t.allocated_to, 0) + 1
+		task_overdue[t.allocated_to] = task_overdue.get(t.allocated_to, 0) + t.is_overdue
+
 	employees = {
 		e.user_id: e
 		for e in frappe.get_all(
@@ -111,7 +212,7 @@ def get_team_summary(users):
 		)
 	}
 	summary = []
-	for u in users:
+	for u in set(users):
 		e = employees.get(u) or frappe._dict()
 		s = stats.get(u) or frappe._dict()
 		summary.append(
@@ -120,10 +221,19 @@ def get_team_summary(users):
 				"name": e.employee_name or frappe.utils.get_fullname(u),
 				"department": e.department,
 				"designation": e.designation,
-				"open": int(s.open or 0),
-				"overdue": int(s.overdue or 0),
+				"open_todos": int(s.open_todos or 0),
+				"open_tasks": task_open.get(u, 0),
+				"overdue": int(s.overdue_todos or 0) + task_overdue.get(u, 0),
 				"closed_30d": int(s.closed_30d or 0),
 			}
 		)
-	summary.sort(key=lambda r: (-r["overdue"], -r["open"], r["name"] or ""))
-	return summary
+	summary.sort(key=lambda r: (-r["overdue"], -(r["open_todos"] + r["open_tasks"]), r["name"] or ""))
+
+	overdue_items = [t for t in tasks if t.is_overdue] + [
+		t
+		for t in get_open_todos(
+			{"allocated_to": ("in", users), "reference_type": ("!=", "Task"), "date": ("<", today())},
+			limit=20,
+		)
+	]
+	return summary, overdue_items[:25]

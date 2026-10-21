@@ -250,23 +250,24 @@ app_license = "mit"
 
 # My Work
 # -------
+# Works on ERPNext's existing ToDo, Task and Workflow Action; adds no doctypes of its own.
 
 before_install = "my_work.install.before_install"
 after_install = "my_work.install.after_install"
+before_uninstall = "my_work.install.before_uninstall"
+
+doctype_list_js = {"ToDo": "public/js/todo_list.js"}
 
 permission_query_conditions = {
-	"Work Item": "my_work.permissions.work_item_query_conditions",
+	"ToDo": "my_work.permissions.todo_query_conditions",
+	"Task": "my_work.permissions.task_query_conditions",
 }
 
 has_permission = {
-	"Work Item": "my_work.permissions.work_item_has_permission",
-}
-
-doc_events = {
-	"DocShare": {"before_insert": "my_work.permissions.block_work_item_share"},
-	"ToDo": {"before_insert": "my_work.events.block_work_item_todo"},
+	"ToDo": "my_work.permissions.todo_has_permission",
+	"Task": "my_work.permissions.task_has_permission",
 }
 
 scheduler_events = {
-	"daily": ["my_work.tasks.mark_overdue"],
+	"daily": ["my_work.tasks.send_overdue_digest"],
 }
