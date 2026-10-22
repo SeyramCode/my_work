@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"mwhdr00001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>My Work</b></span>\", \"col\": 12}}, {\"id\": \"mwsc000001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard\", \"col\": 3}}, {\"id\": \"mwsc000002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My To Dos\", \"col\": 3}}, {\"id\": \"mwsc000003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tasks\", \"col\": 3}}, {\"id\": \"mwsc000004\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pending Approvals\", \"col\": 3}}, {\"id\": \"mwspacer01\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"mwcard0001\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "content": "[{\"id\": \"mwhdr00001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>My Work</b></span>\", \"col\": 12}}, {\"id\": \"mwsc000001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard\", \"col\": 3}}, {\"id\": \"mwsc000002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My To Dos\", \"col\": 3}}, {\"id\": \"mwsc000003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tasks\", \"col\": 3}}, {\"id\": \"mwsc000004\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pending Approvals\", \"col\": 3}}]",
  "creation": "2026-10-21 09:40:26.675198",
  "custom_blocks": [],
  "docstatus": 0,
@@ -11,28 +11,8 @@
  "idx": 0,
  "is_hidden": 0,
  "label": "My Work",
- "links": [
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Setup",
-   "link_count": 1,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "My Work Settings",
-   "link_count": 0,
-   "link_to": "My Work Settings",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  }
- ],
- "modified": "2026-10-21 10:43:18.783327",
+ "links": [],
+ "modified": "2026-10-21 16:08:21.349070",
  "modified_by": "Administrator",
  "module": "My Work",
  "name": "My Work",
