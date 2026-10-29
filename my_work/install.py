@@ -5,7 +5,18 @@ MANAGER_ROLE = "Work Manager"
 ROLES = (USER_ROLE, MANAGER_ROLE)
 
 
+PREREQUISITE_APPS = ("erpnext", "hrms")
+
+
 def before_install():
+	# My Work reads ERPNext Task/ToDo/Workflow data and the Employee "Reports To" tree.
+	missing = [app for app in PREREQUISITE_APPS if app not in frappe.get_installed_apps()]
+	if missing:
+		frappe.throw(
+			frappe._("Install {0} on this site before installing My Work.").format(", ".join(missing)),
+			title=frappe._("Missing apps"),
+		)
+
 	for role in ROLES:
 		if not frappe.db.exists("Role", role):
 			frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 1}).insert(
