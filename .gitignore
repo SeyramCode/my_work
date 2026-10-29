@@ -5,3 +5,5 @@
 tags
 node_modules
 __pycache__
+# Built assets (bench build generates these per server)
+my_work/public/dist/

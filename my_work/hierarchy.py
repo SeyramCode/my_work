@@ -47,10 +47,3 @@ def get_team_users(user):
 			"Employee", filters={"status": "Active", "user_id": ("is", "set")}, pluck="user_id"
 		)
 	return get_subordinate_users(user)
-
-
-def get_manager_user(user):
-	"""User of the direct reports_to manager of `user`, if any."""
-	reports_to = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "reports_to")
-	if reports_to:
-		return frappe.db.get_value("Employee", reports_to, "user_id")

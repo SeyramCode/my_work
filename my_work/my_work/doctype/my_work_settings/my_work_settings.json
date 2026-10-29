@@ -5,24 +5,61 @@
  "engine": "InnoDB",
  "field_order": [
   "enabled",
-  "enabled_help"
+  "section_notifications",
+  "notifications_enabled",
+  "notification_time",
+  "skip_on_holidays",
+  "last_notification_date"
  ],
  "fields": [
   {
    "default": "1",
    "fieldname": "enabled",
    "fieldtype": "Check",
-   "label": "Enable My Work"
+   "label": "Enable My Work",
+   "description": "When unchecked, My Work switches off: the dashboard and workspace are hidden and no notifications are sent. My Work never changes ERPNext permissions; it only displays existing To-Dos, Tasks and workflow approvals."
   },
   {
-   "fieldname": "enabled_help",
-   "fieldtype": "HTML",
-   "options": "<p class=\"text-muted small\">When unchecked, My Work switches off: the dashboard and workspace are hidden and the daily overdue summary stops. My Work never changes ERPNext permissions; it only displays existing To-Dos, Tasks and workflow approvals.</p>"
+   "fieldname": "section_notifications",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "default": "0",
+   "fieldname": "notifications_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Automatic Notifications",
+   "description": "Send a daily overdue summary to each person with overdue items. Only the person themselves is notified. Notifications appear under the bell icon; whether they are also emailed follows each user's own Notification Settings."
+  },
+  {
+   "default": "08:00:00",
+   "fieldname": "notification_time",
+   "fieldtype": "Time",
+   "label": "Send At",
+   "depends_on": "eval:doc.notifications_enabled",
+   "mandatory_depends_on": "eval:doc.notifications_enabled",
+   "description": "Server time. Sent once a day, within 5 minutes of this time. If you turn notifications on after today's send time has passed, today's summary goes out within 5 minutes."
+  },
+  {
+   "default": "1",
+   "fieldname": "skip_on_holidays",
+   "fieldtype": "Check",
+   "label": "Skip People on Holiday",
+   "depends_on": "eval:doc.notifications_enabled",
+   "description": "Before sending, check each person's Holiday List (from their Employee record, or their company's default). Nobody is notified on a day that is a holiday or weekly off in their list. People with no Employee record or no holiday list are still notified."
+  },
+  {
+   "fieldname": "last_notification_date",
+   "fieldtype": "Date",
+   "label": "Last Sent On",
+   "read_only": 1,
+   "no_copy": 1,
+   "depends_on": "eval:doc.notifications_enabled"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-10-21 16:00:00.000000",
+ "modified": "2026-10-29 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "My Work",
  "name": "My Work Settings",

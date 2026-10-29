@@ -12,19 +12,25 @@ from frappe.model.workflow import get_workflow, is_transition_condition_satisfie
 from frappe.utils import add_days, getdate, today
 
 from my_work.hierarchy import get_team_users, is_work_manager
+from my_work.install import MANAGER_ROLE, USER_ROLE
 from my_work.settings import is_enabled
 
 TASK_CLOSED = ("Completed", "Cancelled", "Template")
 
+# Same roles as the My Work Dashboard page; Guests are already refused by @frappe.whitelist().
+ACCESS_ROLES = (USER_ROLE, MANAGER_ROLE, "System Manager")
 
-def check_enabled():
+
+def check_access():
+	"""Only logged-in users with a My Work role, and only while My Work is enabled."""
+	frappe.only_for(ACCESS_ROLES)
 	if not is_enabled():
 		frappe.throw(frappe._("My Work is disabled. Enable it in My Work Settings."), title=frappe._("Disabled"))
 
 
 @frappe.whitelist()
 def get_dashboard():
-	check_enabled()
+	check_access()
 	user = frappe.session.user
 	approvals = get_pending_approvals()
 
@@ -61,9 +67,9 @@ def get_dashboard():
 
 
 @frappe.whitelist()
-def get_member_items(member):
+def get_member_items(member: str):
 	"""Open To-Dos and Tasks on one team member, for the dashboard's team drill-down."""
-	check_enabled()
+	check_access()
 	user = frappe.session.user
 	if member != user and member not in get_team_users(user):
 		frappe.throw(frappe._("{0} is not in your team.").format(member), frappe.PermissionError)
@@ -98,6 +104,7 @@ def get_open_todos(filters, limit=None):
 		filters={"status": "Open", **filters},
 		fields=[
 			"name",
+			"creation",
 			"description",
 			"date",
 			"priority",
@@ -181,7 +188,6 @@ def get_open_tasks(users):
 	return rows
 
 
-@frappe.whitelist()
 def get_pending_approvals():
 	"""Workflow documents the current user can act on right now.
 

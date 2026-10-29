@@ -9,6 +9,8 @@ app_license = "mit"
 # ------------------
 
 # required_apps = []
+# ERPNext and HRMS are checked in my_work.install.before_install instead, so that
+# they are required to install My Work without blocking their own uninstall.
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -24,9 +26,9 @@ app_license = "mit"
 # Includes in <head>
 # ------------------
 
-# include js, css files in header of desk.html
-# app_include_css = "/assets/my_work/css/my_work.css"
-# app_include_js = "/assets/my_work/js/my_work.js"
+# include js, css files in header of desk.html"
+app_include_css = "my_work.bundle.css"
+ # app_include_js = "/assets/my_work/js/my_work.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/my_work/css/my_work.css"
@@ -257,5 +259,6 @@ before_install = "my_work.install.before_install"
 after_install = "my_work.install.after_install"
 
 scheduler_events = {
-	"daily": ["my_work.tasks.send_overdue_digest"],
+	# Checks every 5 minutes; sends once a day at the time set in My Work Settings.
+	"cron": {"*/5 * * * *": ["my_work.tasks.maybe_send_overdue_digest"]},
 }
