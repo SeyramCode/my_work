@@ -9,13 +9,27 @@ import html
 
 import frappe
 from frappe.model.workflow import get_workflow, is_transition_condition_satisfied
-from frappe.utils import add_days, getdate, today
+from frappe.utils import add_days, cint, getdate, today
 
 from my_work.hierarchy import get_team_users, is_work_manager
 from my_work.install import MANAGER_ROLE, USER_ROLE
 from my_work.settings import is_enabled
 
 TASK_CLOSED = ("Completed", "Cancelled", "Template")
+
+
+def past_due_filter():
+	"""Date filter for "before today". Frappe's "<" date filter also matches empty dates;
+	"between" never does, and an item with no due date is never overdue."""
+	return ("between", ["1900-01-01", add_days(today(), -1)])
+
+
+# Documents that name one specific approver. Workflow Actions go to everyone with the approver
+# role, so for these only the named person sees the document as waiting for their approval.
+NAMED_APPROVER_FIELDS = {"Leave Application": "leave_approver"}
+
+# Workflow states whose name contains one of these are finished, never "waiting for approval".
+CLOSED_STATE_WORDS = ("reject", "cancel")
 
 # Same roles as the My Work Dashboard page; Guests are already refused by @frappe.whitelist().
 ACCESS_ROLES = (USER_ROLE, MANAGER_ROLE, "System Manager")
@@ -36,7 +50,10 @@ def get_dashboard():
 
 	my_todos = get_open_todos({"allocated_to": user, "reference_type": ("!=", "Task")})
 	my_tasks = get_open_tasks([user])
-	by_me = get_open_todos({"assigned_by": user, "allocated_to": ("!=", user)})
+	# To-Dos the user gave to other people; Task assignments are counted under Tasks.
+	by_me = get_open_todos(
+		{"assigned_by": user, "allocated_to": ("!=", user), "reference_type": ("!=", "Task")}
+	)
 
 	data = {
 		"cards": {
@@ -176,9 +193,10 @@ def get_open_tasks(users):
 		.orderby(task.exp_end_date)
 	).run(as_dict=True)
 	for r in rows:
-		r.is_overdue = int(
-			r.status == "Overdue" or bool(r.due_date and getdate(r.due_date) < getdate(today()))
-		)
+		# Overdue = past its expected end date, the same rule as ToDos and the Task list filter the
+		# dashboard links to. The "Overdue" status alone is not used: ERPNext leaves it set even
+		# after the end date is moved later.
+		r.is_overdue = int(bool(r.due_date and getdate(r.due_date) < getdate(today())))
 		r.subject = clean_text(r.subject) or r.name
 		r.assignee_name = frappe.utils.get_fullname(r.allocated_to)
 		r.assigner_name = frappe.utils.get_fullname(r.assigned_by) if r.assigned_by else ""
@@ -232,6 +250,10 @@ def get_pending_approvals():
 			continue  # stale action: document has moved on
 		if workflow.states and state == workflow.states[0].state:
 			continue  # still in the starting state (e.g. Draft): not yet submitted for approval
+		if is_closed_state(workflow, state, doc):
+			continue  # rejected or cancelled: nothing left to approve
+		if not is_named_approver(doc, user):
+			continue  # another person is the named approver (e.g. Leave Approver)
 		allowed = [
 			t.action
 			for t in workflow.transitions
@@ -260,6 +282,25 @@ def get_pending_approvals():
 		cache_key, {"fingerprint": fingerprint, "result": result}, expires_in_sec=600
 	)
 	return result
+
+
+def is_closed_state(workflow, state, doc):
+	"""True for cancelled documents and for rejected/cancelled workflow states, even if the
+	workflow still offers a step out of them (e.g. "Rejected -> Reopen")."""
+	if doc.docstatus == 2:
+		return True
+	current = next((s for s in workflow.states if s.state == state), None)
+	if current and cint(current.doc_status) == 2:
+		return True
+	return any(word in (state or "").lower() for word in CLOSED_STATE_WORDS)
+
+
+def is_named_approver(doc, user):
+	"""False only when the document names a specific approver and it is someone else.
+	If the approver field is empty, the workflow's role-based rules decide as usual."""
+	field = NAMED_APPROVER_FIELDS.get(doc.doctype)
+	approver = doc.get(field) if field else None
+	return not approver or approver == user
 
 
 def get_team_summary(users):
@@ -314,7 +355,7 @@ def get_team_summary(users):
 	overdue_items = [t for t in tasks if t.is_overdue] + [
 		t
 		for t in get_open_todos(
-			{"allocated_to": ("in", users), "reference_type": ("!=", "Task"), "date": ("<", today())},
+			{"allocated_to": ("in", users), "reference_type": ("!=", "Task"), "date": past_due_filter()},
 			limit=20,
 		)
 	]

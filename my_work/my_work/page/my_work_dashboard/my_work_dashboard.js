@@ -89,42 +89,68 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
 
     const date = (d) => frappe.datetime.str_to_user(d) || "";
 
+    const item_cell = (d) => `
+        ${
+            d.can_open
+                ? `<a href="${esc(d.route)}" class="mw-item-link">${esc(d.subject)}</a>`
+                : `<span title="${esc(
+                        __("You can track this here but not open it in ERPNext")
+                  )}" class="text-muted">${esc(d.subject)} <i class="fa fa-lock small ml-1"></i></span>`
+        }${overdue_pill(d)}${
+            d.missing_reference
+                ? `<div class="text-warning small mt-1">${esc(
+                        __("Linked {0} was deleted; this To Do is still open", [d.missing_reference])
+                  )}</div>`
+                : d.reference_type && !["Task", "ToDo"].includes(d.reference_type)
+                ? `<div class="text-muted small mt-1">${esc(__(d.reference_type))}: ${esc(d.reference_name)}</div>`
+                : d.project
+                ? `<div class="text-muted small mt-1">${esc(d.project)}</div>`
+                : ""
+        }`;
+
+    // Standard item row: Item | [Created/Assigned Date] | Due Date | Assignee/Assigner
     const item_row = (d, who, assigned_on = null) => `
         <tr class="${d.is_overdue ? "text-danger" : ""}">
-            <td>${
-                d.can_open
-                    ? `<a href="${esc(d.route)}" class="mw-item-link">${esc(d.subject)}</a>`
-                    : `<span title="${esc(
-                            __("You can track this here but not open it in ERPNext")
-                      )}" class="text-muted">${esc(d.subject)} <i class="fa fa-lock small ml-1"></i></span>`
-            }${overdue_pill(d)}${
-                d.missing_reference
-                    ? `<div class="text-warning small mt-1">${esc(
-                            __("Linked {0} was deleted; this To Do is still open", [d.missing_reference])
-                      )}</div>`
-                    : d.reference_type && !["Task", "ToDo"].includes(d.reference_type)
-                    ? `<div class="text-muted small mt-1">${esc(__(d.reference_type))}: ${esc(d.reference_name)}</div>`
-                    : d.project
-                    ? `<div class="text-muted small mt-1">${esc(d.project)}</div>`
-                    : ""
-            }</td>
+            <td>${item_cell(d)}</td>
             ${assigned_on !== null ? `<td style="white-space:nowrap">${date(assigned_on)}</td>` : ""}
             <td style="white-space:nowrap">${date(d.due_date)}</td>
             <td>${esc(who(d) || "")}</td>
         </tr>`;
 
-   const approval_row = (a) => `
+    // Row for "Assigned by Me": Assigned To | Item | Assigned Date | Due Date
+    const assigned_by_me_row = (d) => `
+        <tr class="${d.is_overdue ? "text-danger" : ""}">
+            <td>${esc(d.assignee_name || d.allocated_to || "")}</td>
+            <td>${item_cell(d)}</td>
+            <td style="white-space:nowrap">${date(d.assigned_date || d.creation)}</td>
+            <td style="white-space:nowrap">${date(d.due_date)}</td>
+        </tr>`;
+
+    // Row for Team Overdue Items: Assigned To | Item | Due Date
+    const team_overdue_row = (d) => `
+        <tr class="${d.is_overdue ? "text-danger" : ""}">
+            <td><strong>${esc(d.assignee_name || d.allocated_to || "")}</strong></td>
+            <td>${item_cell(d)}</td>
+            <td style="white-space:nowrap">${date(d.due_date)}</td>
+        </tr>`;
+
+    // Pending Approval row: Bold Requested By, left-aligned Document
+    const approval_row = (a) => `
         <tr class="mw-approval-row">
-            <td>
-                <a href="${esc(a.route)}" class="mw-item-link mw-approval-title">${esc(a.title)}</a>
-                <div class="mw-doc-subtext">
+            <td style="text-align: left !important;">
+                <span class="mw-user-text" style="font-weight: 600; color: var(--text-color);">${esc(a.requested_by || "-")}</span>
+            </td>
+            <td style="text-align: left !important;">
+                <a href="${esc(a.route)}" class="mw-item-link mw-approval-title" style="display: block; text-align: left !important; font-weight: 400 !important; text-decoration: none;">
+                    ${esc(a.title)}
+                </a>
+                <div class="mw-doc-subtext" style="display: flex; justify-content: flex-start; align-items: center; gap: 6px; margin-top: 4px; text-align: left !important;">
                     <span class="mw-doc-badge">${esc(__(a.doctype))}</span>
                     <span class="mw-doc-name">${esc(a.name)}</span>
                 </div>
             </td>
             <td><span class="mw-state-pill">${esc(__(a.state))}</span></td>
-            <td><span class="mw-user-text">${esc(a.requested_by || "-")}</span></td>
-            <td style="white-space:nowrap">
+            <td style="white-space: nowrap;">
                 <span class="mw-waiting-time" title="${esc(frappe.datetime.str_to_user(a.waiting_since))}">${frappe.datetime.prettyDate(a.waiting_since)}</span>
             </td>
         </tr>`;
@@ -194,6 +220,7 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
         });
         return $p;
     };
+
     const show_member = (member) => {
         const $slot = $body
             .find(".mw-member")
@@ -237,9 +264,6 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                 const c = d.cards || {};
                 $body.empty();
 
-                // The server decides who is in the viewer's team: Work Managers get the whole
-                // company, team leads get everyone below them in Employee "Reports To", and
-                // everyone else gets no team. Show the team view whenever it sent one.
                 const hasTeam = Boolean(d.team && d.team.length);
 
                 const fullName = frappe.session.user_fullname || me.split("@")[0];
@@ -256,8 +280,8 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                 // --- Sidebar Column ---
                 const $sidebarCol = $(`<div class="mw-sidebar-col"></div>`).appendTo($layout);
 
-                // Box 1: Navigation
-                const $sidebar = $(`
+                // Sidebar Navigation
+                $(`
                     <div class="mw-sidebar">
                         <div class="mw-sidebar-title">${__("Navigation")}</div>
                         <a class="mw-nav-item active-nav" data-view="personal">
@@ -293,7 +317,7 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                     </div>
                 `).appendTo($sidebarCol);
 
-                // Box 2: Management OR Profile Box
+                // Management OR Profile Box
                 if (hasTeam) {
                     $(`
                         <div class="mw-sidebar-card">
@@ -331,81 +355,188 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
 
                 // Compact Metric Cards
                 const $cardsGrid = $(`<div class="mw-cards-grid"></div>`).appendTo($personalView);
+
+                // Each card opens a list with exactly the filters used for its count in my_work/api.py.
+                const my_todos = { allocated_to: me, status: "Open", reference_type: ["!=", "Task"] };
+                const by_me = {
+                    assigned_by: me,
+                    allocated_to: ["!=", me],
+                    status: "Open",
+                    reference_type: ["!=", "Task"],
+                };
+                const my_tasks = {
+                    _assign: ["like", `%${me}%`],
+                    status: ["not in", ["Completed", "Cancelled", "Template"]],
+                };
+                // "between" rather than "<": Frappe's "<" date filter also matches empty dates,
+                // and an item with no due date is never overdue.
+                const past_due = ["between", ["1900-01-01", frappe.datetime.add_days(today, -1)]];
+                const overdue = { date: past_due };
+
                 $cardsGrid.append(
                     card(__("Pending Approval"), c.approvals, false, () => {
                         const el = $personalView.find(".mw-approvals-sec")[0];
                         if (el) el.scrollIntoView({ behavior: "smooth" });
                     }),
-                    card(__("Open To-Dos"), c.my_todos, false, () =>
-                        go("ToDo", { allocated_to: me, status: "Open" })
-                    ),
+                    card(__("Open To-Dos"), c.my_todos, false, () => go("ToDo", { ...my_todos })),
                     card(__("Overdue To-Dos"), c.my_todos_overdue, true, () =>
-                        go("ToDo", { allocated_to: me, status: "Open", date: ["<", today] })
+                        go("ToDo", { ...my_todos, ...overdue })
                     ),
-                    card(__("Open Tasks"), c.my_tasks, false, () =>
-                        go("Task", {
-                            _assign: ["like", `%${me}%`],
-                            status: ["not in", ["Completed", "Cancelled", "Template"]],
-                        })
-                    ),
-                    card(__("Overdue Tasks"), c.my_tasks_overdue, true, () =>
-                        go("Task", { _assign: ["like", `%${me}%`], status: "Overdue" })
-                    ),
-                    card(__("Assigned (Open)"), c.by_me_open, false, () =>
-                        go("ToDo", { assigned_by: me, status: "Open" })
-                    ),
+                    card(__("Assigned (Open)"), c.by_me_open, false, () => go("ToDo", { ...by_me })),
                     card(__("Assigned (Overdue)"), c.by_me_overdue, true, () =>
-                        go("ToDo", { assigned_by: me, status: "Open", date: ["<", today] })
+                        go("ToDo", { ...by_me, ...overdue })
+                    ),
+                    card(__("Open Tasks"), c.my_tasks, false, () => go("Task", { ...my_tasks })),
+                    card(__("Overdue Tasks"), c.my_tasks_overdue, true, () =>
+                        go("Task", { ...my_tasks, exp_end_date: past_due })
                     )
                 );
 
-               // Approvals (10 items initially with a "Show More" toggle)
-                const approvals = d.approvals || [];
-                const approvalHeaders = [__("Document"), __("State"), __("Requested By"), __("Waiting Since")];
-                const allApprovalRows = approvals.map(approval_row);
-                const hasMoreApprovals = allApprovalRows.length > 10;
-                const visibleApprovalRows = allApprovalRows.slice(0, 10);
+                // ==========================================
+                // 1. Approvals Panel with Real Dynamic Autocomplete Dropdown
+                // ==========================================
+                const allApprovals = d.approvals || [];
+                const approvalHeaders = [__("Requested By"), __("Document"), __("State"), __("Waiting Since")];
+
+                const allSuggestions = [...new Set([
+                    ...allApprovals.map((a) => a.requested_by).filter(Boolean),
+                    ...allApprovals.map((a) => a.doctype).filter(Boolean),
+                    ...allApprovals.map((a) => a.name).filter(Boolean)
+                ])].sort();
 
                 const $approvalsWrap = $(`<div class="row mw-approvals-sec"></div>`).appendTo($personalView);
-                const $approvalsPanel = $(
-                    panel(
-                        __("Pending My Approval"),
-                        approvalHeaders,
-                        visibleApprovalRows,
-                        __("Nothing is currently waiting for your approval.")
-                    )
-                ).appendTo($approvalsWrap);
+                const $approvalsCol = $(`<div class="col-12 mb-4"></div>`).appendTo($approvalsWrap);
 
-                if (hasMoreApprovals) {
-                    const remainingCount = allApprovalRows.length - 10;
-                    const $panelBody = $approvalsPanel.find(".mw-panel");
-                    const $showMoreBtn = $(`
-                        <div class="mw-show-more-wrap">
-                            <button type="button" class="btn btn-default btn-xs mw-show-more-btn">
-                                <span>${__("Show More ({0} more)", [remainingCount])}</span>
-                                <i class="fa fa-chevron-down ml-1"></i>
-                            </button>
+                let searchQuery = "";
+                let isExpanded = false;
+
+                const renderApprovalsPanel = () => {
+                    const q = (searchQuery || "").trim().toLowerCase();
+
+                    const filteredList = q
+                        ? allApprovals.filter((a) => {
+                              const req = (a.requested_by || "").toLowerCase();
+                              const title = (a.title || "").toLowerCase();
+                              const dt = (a.doctype || "").toLowerCase();
+                              const name = (a.name || "").toLowerCase();
+                              return req.includes(q) || title.includes(q) || dt.includes(q) || name.includes(q);
+                          })
+                        : allApprovals;
+
+                    const rows = filteredList.map(approval_row);
+                    const hasMore = rows.length > 10;
+                    const visibleRows = isExpanded ? rows : rows.slice(0, 10);
+                    const remainingCount = rows.length - 10;
+
+                    const matchingSuggestions = q
+                        ? allSuggestions.filter((item) => item.toLowerCase().includes(q) && item.toLowerCase() !== q).slice(0, 8)
+                        : [];
+
+                    const html = `
+                        <div class="mw-panel">
+                            <div class="d-flex justify-content-between align-items-center mb-3" style="min-height: 32px;">
+                                <div class="mw-panel-title d-flex align-items-center" style="gap: 8px;">
+                                    <span>${esc(__("Pending My Approval"))}</span>
+                                    <span class="mw-badge-count">${filteredList.length} ${__("items")}</span>
+                                </div>
+
+                                <div class="mw-search-container position-relative" style="width: 200px;">
+                                    <input 
+                                        type="text" 
+                                        class="form-control form-control-sm mw-approval-filter-input" 
+                                        placeholder="${__("Filter approvals...")}" 
+                                        value="${esc(searchQuery)}"
+                                        autocomplete="off"
+                                        style="height: 28px; font-size: 12px; padding-left: 26px; padding-right: 22px; border-radius: 4px;"
+                                    />
+                                    <i class="fa fa-search text-muted position-absolute" style="left: 8px; top: 8px; font-size: 11px; pointer-events: none;"></i>
+                                    ${
+                                        searchQuery
+                                            ? `<i class="fa fa-times-circle mw-clear-filter position-absolute text-muted" style="right: 7px; top: 7px; font-size: 13px; cursor: pointer;"></i>`
+                                            : ""
+                                    }
+
+                                    ${
+                                        matchingSuggestions.length
+                                            ? `<ul class="dropdown-menu show mw-autocomplete-menu" style="width: 100%; top: 30px; left: 0; max-height: 190px; overflow-y: auto; padding: 4px 0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.12); font-size: 12px; z-index: 1050; display: block;">
+                                                ${matchingSuggestions
+                                                    .map(
+                                                        (item) => `
+                                                    <li>
+                                                        <a class="dropdown-item mw-suggestion-item py-1 px-2" href="#" style="cursor: pointer; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                            ${esc(item)}
+                                                        </a>
+                                                    </li>`
+                                                    )
+                                                    .join("")}
+                                               </ul>`
+                                            : ""
+                                    }
+                                </div>
+                            </div>
+
+                            ${
+                                visibleRows.length
+                                    ? `<div class="table-responsive">
+                                        <table class="table mb-0">
+                                            <thead><tr>${approvalHeaders.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+                                            <tbody>${visibleRows.join("")}</tbody>
+                                        </table>
+                                       </div>`
+                                    : `<div class="text-muted small py-4 text-center">${esc(__("No pending approvals match your search."))}</div>`
+                            }
+
+                            ${
+                                hasMore
+                                    ? `<div class="mw-show-more-wrap text-center mt-3">
+                                        <button type="button" class="btn btn-default btn-xs mw-toggle-expand-btn">
+                                            <span>${isExpanded ? __("Show Less") : __("Show More ({0} more)", [remainingCount])}</span>
+                                            <i class="fa fa-chevron-${isExpanded ? "up" : "down"} ml-1"></i>
+                                        </button>
+                                       </div>`
+                                    : ""
+                            }
                         </div>
-                    `).appendTo($panelBody);
+                    `;
 
-                    let expanded = false;
-                    $showMoreBtn.on("click", "button", function () {
-                        expanded = !expanded;
-                        const $tbody = $approvalsPanel.find("tbody");
-                        if (expanded) {
-                            $tbody.html(allApprovalRows.join(""));
-                            $(this).find("span").text(__("Show Less"));
-                            $(this).find("i").removeClass("fa-chevron-down").addClass("fa-chevron-up");
-                        } else {
-                            $tbody.html(visibleApprovalRows.join(""));
-                            $(this).find("span").text(__("Show More ({0} more)", [remainingCount]));
-                            $(this).find("i").removeClass("fa-chevron-up").addClass("fa-chevron-down");
-                            $approvalsWrap[0].scrollIntoView({ behavior: "smooth" });
-                        }
-                    });
-                }
+                    $approvalsCol.html(html);
 
-                // To-Dos and Tasks
+                    const $input = $approvalsCol.find(".mw-approval-filter-input");
+                    if (searchQuery) {
+                        $input.focus();
+                        const len = $input.val().length;
+                        $input[0].setSelectionRange(len, len);
+                    }
+                };
+
+                renderApprovalsPanel();
+
+                $approvalsCol.on("input", ".mw-approval-filter-input", function () {
+                    searchQuery = $(this).val();
+                    isExpanded = false;
+                    renderApprovalsPanel();
+                });
+
+                $approvalsCol.on("click", ".mw-suggestion-item", function (e) {
+                    e.preventDefault();
+                    searchQuery = $(this).text().trim();
+                    isExpanded = false;
+                    renderApprovalsPanel();
+                });
+
+                $approvalsCol.on("click", ".mw-clear-filter", function () {
+                    searchQuery = "";
+                    renderApprovalsPanel();
+                });
+
+                $approvalsCol.on("click", ".mw-toggle-expand-btn", function () {
+                    isExpanded = !isExpanded;
+                    renderApprovalsPanel();
+                });
+
+                // ==========================================
+                // 2. To-Dos and Tasks Panels
+                // ==========================================
                 $(`<div class="row mw-todos-sec mw-tasks-sec"></div>`)
                     .appendTo($personalView)
                     .append(
@@ -425,14 +556,23 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                         )
                     );
 
-               // Assigned by Me
+                // ==========================================
+                // 3. Assigned by Me to Others
+                // ==========================================
+                const rawAssigned = d.by_me || [];
+                const sortedByMe = [...rawAssigned].sort((a, b) => {
+                    const dateA = new Date(a.assigned_date || a.creation || 0).getTime();
+                    const dateB = new Date(b.assigned_date || b.creation || 0).getTime();
+                    return dateB - dateA;
+                });
+
                 $(`<div class="row mw-assigned-sec"></div>`)
                     .appendTo($personalView)
                     .append(
                         panel(
                             __("Assigned by Me to Others"),
-                            [__("Item"), __("Assigned Date"), __("Due Date"), __("Assigned To")],
-                            (d.by_me || []).map((x) => item_row(x, (r) => r.assignee_name, x.assigned_date || x.creation)),
+                            [__("Assigned To"), __("Item"), __("Assigned Date"), __("Due Date")],
+                            sortedByMe.map(assigned_by_me_row),
                             __("No active items currently assigned to others.")
                         )
                     );
@@ -465,8 +605,8 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                         $teamContent.append(
                             panel(
                                 __("Team Overdue Items"),
-                                [__("Item"), __("Due Date"), __("Assigned To")],
-                                d.team_overdue.map((x) => item_row(x, (r) => r.assignee_name)),
+                                [__("Assigned To"), __("Item"), __("Due Date")],
+                                d.team_overdue.map(team_overdue_row),
                                 ""
                             )
                         );
@@ -491,11 +631,10 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                 });
 
-                // In-page section scrolling (Approvals, To-Dos, etc.)
+                // In-page section scrolling
                 $sidebarCol.on("click", "[data-action]", function() {
                     const action = $(this).data("action");
                     
-                    // Switch back to personal view first if currently on team view
                     $teamView.hide();
                     $personalView.show();
                     $sidebarCol.find("[data-view='personal']").addClass("active-nav");
@@ -515,4 +654,3 @@ frappe.pages["my-work-dashboard"].on_page_load = function (wrapper) {
 
     $(wrapper).on("show", () => render());
 };
-

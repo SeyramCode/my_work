@@ -29,13 +29,19 @@ def get_employee_bounds(user):
 
 
 def get_subordinate_users(user):
-	"""Users of every employee below `user` in the reporting chain (direct and indirect)."""
+	"""Users of every active employee below `user` in the reporting chain (direct and indirect).
+	Employees who have left are skipped, but their active reports still count."""
 	bounds = get_employee_bounds(user)
 	if not bounds:
 		return []
 	return frappe.get_all(
 		"Employee",
-		filters={"lft": (">", bounds[0]), "rgt": ("<", bounds[1]), "user_id": ("is", "set")},
+		filters={
+			"lft": (">", bounds[0]),
+			"rgt": ("<", bounds[1]),
+			"status": "Active",
+			"user_id": ("is", "set"),
+		},
 		pluck="user_id",
 	)
 
