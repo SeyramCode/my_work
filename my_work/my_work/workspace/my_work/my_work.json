@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"mwhdr00001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>My Work</b></span>\", \"col\": 12}}, {\"id\": \"mwsc000001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard\", \"col\": 3}}, {\"id\": \"mwsc000002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My To Dos\", \"col\": 3}}, {\"id\": \"mwsc000003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Tasks\", \"col\": 3}}, {\"id\": \"mwsc000004\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pending Approvals\", \"col\": 3}}]",
+ "content": "[{\"id\": \"mwhdr00001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>My Work</b></span>\", \"col\": 12}}, {\"id\": \"mwsc000001\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Dashboard\", \"col\": 3}}, {\"id\": \"mwsc000002\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My To Dos\", \"col\": 3}}, {\"id\": \"mwsc000003\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My Tasks\", \"col\": 3}}]",
  "creation": "2026-10-21 09:40:26.675198",
  "custom_blocks": [],
  "docstatus": 0,
@@ -12,7 +12,7 @@
  "is_hidden": 0,
  "label": "My Work",
  "links": [],
- "modified": "2026-10-21 16:08:21.349070",
+ "modified": "2026-11-04 16:30:18.145079",
  "modified_by": "Administrator",
  "module": "My Work",
  "name": "My Work",
@@ -21,17 +21,7 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [
-  {
-   "role": "Work User"
-  },
-  {
-   "role": "Work Manager"
-  },
-  {
-   "role": "System Manager"
-  }
- ],
+ "roles": [],
  "sequence_id": 1.0,
  "shortcuts": [
   {
@@ -46,25 +36,16 @@
    "format": "{} Open",
    "label": "My To Dos",
    "link_to": "ToDo",
-   "stats_filter": "[[\"ToDo\",\"status\",\"=\",\"Open\",false]]",
+   "stats_filter": "[[\"ToDo\",\"allocated_to\",\"=\",frappe.session.user,false],[\"ToDo\",\"status\",\"=\",\"Open\",false],[\"ToDo\",\"reference_type\",\"!=\",\"Task\",false]]",
    "type": "DocType"
   },
   {
    "color": "Grey",
    "doc_view": "List",
-   "format": "{} Overdue",
-   "label": "Tasks",
-   "link_to": "Task",
-   "stats_filter": "[[\"Task\",\"status\",\"=\",\"Overdue\",false]]",
-   "type": "DocType"
-  },
-  {
-   "color": "Red",
-   "doc_view": "List",
    "format": "{} Open",
-   "label": "Pending Approvals",
-   "link_to": "Workflow Action",
-   "stats_filter": "[[\"Workflow Action\",\"status\",\"=\",\"Open\",false]]",
+   "label": "My Tasks",
+   "link_to": "Task",
+   "stats_filter": "[[\"Task\",\"_assign\",\"like\",\"%\" + frappe.session.user + \"%\",false],[\"Task\",\"status\",\"not in\",[\"Completed\",\"Cancelled\",\"Template\"],false]]",
    "type": "DocType"
   }
  ],

@@ -524,3 +524,17 @@ body[data-theme="dark"],
     background: rgba(16, 185, 129, 0.15);
     color: #34d399;
 }
+
+/* Column 1: Requested By - Header centered, content left-aligned */
+.mw-approvals-sec table th:nth-child(1) {
+    text-align: center !important;
+}
+.mw-approvals-sec table td:nth-child(1) {
+    text-align: left !important;
+}
+
+/* Column 2: Document - Header and content both centered */
+.mw-approvals-sec table th:nth-child(2),
+.mw-approvals-sec table td:nth-child(2) {
+    text-align: center !important;
+}
